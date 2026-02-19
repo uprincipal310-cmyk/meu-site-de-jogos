@@ -3,78 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>GameZone Mobile</title>
+    <title>GameZone | Recordes</title>
     <style>
-        body { background: #0a0a0c; color: white; margin: 0; overflow: hidden; touch-action: none; }
+        body { background: #0a0a0c; color: white; margin: 0; overflow: hidden; touch-action: none; font-family: sans-serif; }
         canvas { display: block; background: black; width: 100vw; height: 100vh; }
-        #score { position: absolute; top: 10px; left: 10px; font-family: sans-serif; font-size: 20px; color: #0f8; }
+        #ui { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 10; }
+        .stats { display: flex; flex-direction: column; }
+        #score { font-size: 20px; color: #0f8; font-weight: bold; }
+        #highScore { font-size: 14px; color: #aaa; margin-top: 5px; }
+        #pauseBtn { background: rgba(255, 255, 255, 0.2); border: 1px solid white; color: white; padding: 10px 20px; border-radius: 5px; }
+        #gameOver { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); border: 2px solid red; padding: 30px; 
+            text-align: center; display: none; border-radius: 15px; z-index: 20;
+        }
+        #restartBtn { background: red; color: white; border: none; padding: 10px 20px; font-weight: bold; margin-top: 15px; border-radius: 5px; width: 100%; }
     </style>
 </head>
 <body>
-    <div id="score">Pontos: 0</div>
+    <div id="ui">
+        <div class="stats">
+            <div id="score">Pontos: 0</div>
+            <div id="highScore">Recorde: 0</div>
+        </div>
+        <button id="pauseBtn">PAUSE</button>
+    </div>
+
+    <div id="gameOver">
+        <h1 style="color: red; margin: 0;">GAME OVER</h1>
+        <p id="finalScoreText" style="margin: 10px 0;">Pontos: 0</p>
+        <p id="newRecordText" style="color: yellow; display: none; font-weight: bold;">NOVO RECORDE!</p>
+        <button id="restartBtn" onclick="location.reload()">RECOMECAR</button>
+    </div>
+
     <canvas id="gameCanvas"></canvas>
 
 <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     const scoreBoard = document.getElementById("score");
+    const highScoreBoard = document.getElementById("highScore");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const gameOverScreen = document.getElementById("gameOver");
+    const finalScoreText = document.getElementById("finalScoreText");
+    const newRecordText = document.getElementById("newRecordText");
 
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
     let score = 0;
-    let player = { x: canvas.width/2, y: canvas.height - 80, w: 50, h: 50 };
+    let paused = false;
+    let isGameOver = false;
+    
+    // Carregar Recorde do armazenamento do celular
+    let record = localStorage.getItem("gameRecord") || 0;
+    highScoreBoard.innerText = "Recorde: " + record;
+
+    let player = { x: canvas.width/2 - 25, y: canvas.height - 120, w: 50, h: 50 };
     let enemies = [];
     let bullets = [];
 
-    // Controle Touch
-    window.addEventListener("touchmove", (e) => {
-        player.x = e.touches[0].clientX - player.w/2;
+    pauseBtn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        if (!isGameOver) {
+            paused = !paused;
+            pauseBtn.innerText = paused ? "VOLTAR" : "PAUSE";
+        }
     });
 
-    // Tiro Automático
+    window.addEventListener("touchmove", (e) => {
+        if (!paused && !isGameOver) {
+            player.x = e.touches[0].clientX - player.w/2;
+            player.y = e.touches[0].clientY - player.h/2;
+        }
+    });
+
     setInterval(() => {
-        bullets.push({ x: player.x + 22, y: player.y, w: 6, h: 15 });
+        if (!paused && !isGameOver) bullets.push({ x: player.x + 22, y: player.y, w: 6, h: 15 });
     }, 300);
 
-    function spawnEnemy() {
-        enemies.push({ x: Math.random() * (canvas.width - 40), y: -40, w: 40, h: 40, s: 3 + Math.random() * 4 });
-    }
-    setInterval(spawnEnemy, 800);
+    setInterval(() => {
+        if (!paused && !isGameOver) enemies.push({ x: Math.random() * (canvas.width - 40), y: -40, w: 40, h: 40, s: 3 + Math.random() * 4 });
+    }, 800);
 
     function loop() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Desenha Nave
-        ctx.fillStyle = "#0f8";
-        ctx.fillRect(player.x, player.y, player.w, player.h);
+        if (!paused && !isGameOver) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = "#0f8";
+            ctx.fillRect(player.x, player.y, player.w, player.h);
 
-        // Balas
-        bullets.forEach((b, i) => {
-            b.y -= 10;
-            ctx.fillStyle = "yellow";
-            ctx.fillRect(b.x, b.y, b.w, b.h);
-            if(b.y < 0) bullets.splice(i, 1);
-        });
-
-        // Inimigos
-        enemies.forEach((en, i) => {
-            en.y += en.s;
-            ctx.fillStyle = "red";
-            ctx.fillRect(en.x, en.y, en.w, en.h);
-
-            // Colisão
-            bullets.forEach((b, bi) => {
-                if(b.x < en.x + en.w && b.x + b.w > en.x && b.y < en.y + en.h) {
-                    enemies.splice(i, 1);
-                    bullets.splice(bi, 1);
-                    score += 10;
-                    scoreBoard.innerText = "Pontos: " + score;
-                }
+            bullets.forEach((b, i) => {
+                b.y -= 10;
+                ctx.fillStyle = "yellow";
+                ctx.fillRect(b.x, b.y, b.w, b.h);
+                if(b.y < 0) bullets.splice(i, 1);
             });
-        });
+
+            enemies.forEach((en, i) => {
+                en.y += en.s;
+                ctx.fillStyle = "red";
+                ctx.fillRect(en.x, en.y, en.w, en.h);
+
+                // Colisão Jogador vs Inimigo
+                if (player.x < en.x + en.w && player.x + player.w > en.x && player.y < en.y + en.h && player.y + player.h > en.y) {
+                    endGame();
+                }
+
+                bullets.forEach((b, bi) => {
+                    if(b.x < en.x + en.w && b.x + b.w > en.x && b.y < en.y + en.h && b.y + b.h > en.y) {
+                        enemies.splice(i, 1);
+                        bullets.splice(bi, 1);
+                        score += 10;
+                        scoreBoard.innerText = "Pontos: " + score;
+                    }
+                });
+            });
+        }
         requestAnimationFrame(loop);
     }
+
+    function endGame() {
+        isGameOver = true;
+        gameOverScreen.style.display = "block";
+        finalScoreText.innerText = "Pontos Totais: " + score;
+        
+        if (score > record) {
+            localStorage.setItem("gameRecord", score);
+            newRecordText.style.display = "block";
+        }
+    }
+
     loop();
 </script>
 </body>
