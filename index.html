@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>GameZone Mobile</title>
+    <style>
+        body { background: #0a0a0c; color: white; margin: 0; overflow: hidden; touch-action: none; }
+        canvas { display: block; background: black; width: 100vw; height: 100vh; }
+        #score { position: absolute; top: 10px; left: 10px; font-family: sans-serif; font-size: 20px; color: #0f8; }
+    </style>
+</head>
+<body>
+    <div id="score">Pontos: 0</div>
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreBoard = document.getElementById("score");
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let score = 0;
+    let player = { x: canvas.width/2, y: canvas.height - 80, w: 50, h: 50 };
+    let enemies = [];
+    let bullets = [];
+
+    // Controle Touch
+    window.addEventListener("touchmove", (e) => {
+        player.x = e.touches[0].clientX - player.w/2;
+    });
+
+    // Tiro Automático
+    setInterval(() => {
+        bullets.push({ x: player.x + 22, y: player.y, w: 6, h: 15 });
+    }, 300);
+
+    function spawnEnemy() {
+        enemies.push({ x: Math.random() * (canvas.width - 40), y: -40, w: 40, h: 40, s: 3 + Math.random() * 4 });
+    }
+    setInterval(spawnEnemy, 800);
+
+    function loop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Desenha Nave
+        ctx.fillStyle = "#0f8";
+        ctx.fillRect(player.x, player.y, player.w, player.h);
+
+        // Balas
+        bullets.forEach((b, i) => {
+            b.y -= 10;
+            ctx.fillStyle = "yellow";
+            ctx.fillRect(b.x, b.y, b.w, b.h);
+            if(b.y < 0) bullets.splice(i, 1);
+        });
+
+        // Inimigos
+        enemies.forEach((en, i) => {
+            en.y += en.s;
+            ctx.fillStyle = "red";
+            ctx.fillRect(en.x, en.y, en.w, en.h);
+
+            // Colisão
+            bullets.forEach((b, bi) => {
+                if(b.x < en.x + en.w && b.x + b.w > en.x && b.y < en.y + en.h) {
+                    enemies.splice(i, 1);
+                    bullets.splice(bi, 1);
+                    score += 10;
+                    scoreBoard.innerText = "Pontos: " + score;
+                }
+            });
+        });
+        requestAnimationFrame(loop);
+    }
+    loop();
+</script>
+</body>
+</html>
